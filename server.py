@@ -17,6 +17,20 @@ PORT = 8769
 mcp = FastMCP("caldav-mcp")
 
 
+def _resolve(url: str = "", username: str = "", password: str = ""):
+    from fastmcp.server.dependencies import get_http_request
+    try:
+        hdrs = get_http_request().headers
+    except RuntimeError:
+        hdrs = {}
+    u = url or hdrs.get("x-caldav-url", "")
+    un = username or hdrs.get("x-caldav-username", "")
+    pw = password or hdrs.get("x-caldav-password", "")
+    if not u or not un or not pw:
+        raise ValueError("Credentials required (params or x-caldav-* headers)")
+    return u, un, pw
+
+
 def _get_client(url: str, username: str, password: str) -> caldav.DAVClient:
     return caldav.DAVClient(url=url, username=username, password=password)
 
@@ -31,9 +45,9 @@ def _format_dt(dt):
 
 @mcp.tool()
 def list_calendars(
-    caldav_url: str,
-    caldav_username: str,
-    caldav_password: str,
+    caldav_url: str = "",
+    caldav_username: str = "",
+    caldav_password: str = "",
 ) -> Dict[str, Any]:
     """List all available calendars.
 
@@ -43,7 +57,8 @@ def list_calendars(
         caldav_password: Password or app-specific password
     """
     try:
-        client = _get_client(caldav_url, caldav_username, caldav_password)
+        url, username, password = _resolve(caldav_url, caldav_username, caldav_password)
+        client = _get_client(url, username, password)
         principal = client.principal()
         calendars = principal.calendars()
         result = []
@@ -59,9 +74,9 @@ def list_calendars(
 
 @mcp.tool()
 def list_events(
-    caldav_url: str,
-    caldav_username: str,
-    caldav_password: str,
+    caldav_url: str = "",
+    caldav_username: str = "",
+    caldav_password: str = "",
     start: str,
     end: str,
     calendar_name: Optional[str] = None,
@@ -79,7 +94,8 @@ def list_events(
         calendar_url: Exact calendar URL (overrides calendar_name)
     """
     try:
-        client = _get_client(caldav_url, caldav_username, caldav_password)
+        url, username, password = _resolve(caldav_url, caldav_username, caldav_password)
+        client = _get_client(url, username, password)
         principal = client.principal()
 
         if calendar_url:
@@ -124,9 +140,9 @@ def list_events(
 
 @mcp.tool()
 def create_event(
-    caldav_url: str,
-    caldav_username: str,
-    caldav_password: str,
+    caldav_url: str = "",
+    caldav_username: str = "",
+    caldav_password: str = "",
     summary: str,
     start: str,
     end: str,
@@ -150,7 +166,8 @@ def create_event(
         location: Event location
     """
     try:
-        client = _get_client(caldav_url, caldav_username, caldav_password)
+        url, username, password = _resolve(caldav_url, caldav_username, caldav_password)
+        client = _get_client(url, username, password)
         principal = client.principal()
 
         if calendar_url:
@@ -184,9 +201,9 @@ def create_event(
 
 @mcp.tool()
 def update_event(
-    caldav_url: str,
-    caldav_username: str,
-    caldav_password: str,
+    caldav_url: str = "",
+    caldav_username: str = "",
+    caldav_password: str = "",
     uid: str,
     calendar_name: Optional[str] = None,
     calendar_url: Optional[str] = None,
@@ -212,7 +229,8 @@ def update_event(
         location: New location
     """
     try:
-        client = _get_client(caldav_url, caldav_username, caldav_password)
+        url, username, password = _resolve(caldav_url, caldav_username, caldav_password)
+        client = _get_client(url, username, password)
         principal = client.principal()
 
         if calendar_url:
@@ -254,9 +272,9 @@ def update_event(
 
 @mcp.tool()
 def delete_event(
-    caldav_url: str,
-    caldav_username: str,
-    caldav_password: str,
+    caldav_url: str = "",
+    caldav_username: str = "",
+    caldav_password: str = "",
     uid: str,
     calendar_name: Optional[str] = None,
     calendar_url: Optional[str] = None,
@@ -272,7 +290,8 @@ def delete_event(
         calendar_url: Exact calendar URL (overrides calendar_name)
     """
     try:
-        client = _get_client(caldav_url, caldav_username, caldav_password)
+        url, username, password = _resolve(caldav_url, caldav_username, caldav_password)
+        client = _get_client(url, username, password)
         principal = client.principal()
 
         if calendar_url:
