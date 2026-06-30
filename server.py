@@ -1,9 +1,9 @@
 """
 CalDAV MCP Server — Calendar operations via FastMCP streamable-http.
+Credentials are per-call (not pod-level). Each user passes their own CalDAV config.
 """
-import os
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 import caldav
@@ -12,19 +12,13 @@ from fastmcp import FastMCP
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("caldav-mcp")
 
-PORT = int(os.environ.get("PORT", "8769"))
-
-CALDAV_URL = os.environ.get("CALDAV_URL", "")
-CALDAV_USERNAME = os.environ.get("CALDAV_USERNAME", "")
-CALDAV_PASSWORD = os.environ.get("CALDAV_PASSWORD", "")
+PORT = 8769
 
 mcp = FastMCP("caldav-mcp")
 
 
-def _get_client() -> caldav.DAVClient:
-    if not CALDAV_URL or not CALDAV_USERNAME or not CALDAV_PASSWORD:
-        raise RuntimeError("CALDAV_URL, CALDAV_USERNAME, CALDAV_PASSWORD must be set")
-    return caldav.DAVClient(url=CALDAV_URL, username=CALDAV_USERNAME, password=CALDAV_PASSWORD)
+def _get_client(url: str, username: str, password: str) -> caldav.DAVClient:
+    return caldav.DAVClient(url=url, username=username, password=password)
 
 
 def _format_dt(dt):
@@ -36,14 +30,20 @@ def _format_dt(dt):
 
 
 @mcp.tool()
-def list_calendars() -> Dict[str, Any]:
-    """List all available calendars with name and URL.
+def list_calendars(
+    caldav_url: str,
+    caldav_username: str,
+    caldav_password: str,
+) -> Dict[str, Any]:
+    """List all available calendars.
 
-    Returns:
-        List of calendars with name, url, and CTAG
+    Args:
+        caldav_url: CalDAV server URL (e.g. https://caldav.icloud.com)
+        caldav_username: Username
+        caldav_password: Password or app-specific password
     """
     try:
-        client = _get_client()
+        client = _get_client(caldav_url, caldav_username, caldav_password)
         principal = client.principal()
         calendars = principal.calendars()
         result = []
@@ -51,7 +51,6 @@ def list_calendars() -> Dict[str, Any]:
             result.append({
                 "name": cal.name,
                 "url": str(cal.url) if cal.url else None,
-                "ctag": cal.get_property(caldav.elements.cdav.CTag()),
             })
         return {"count": len(result), "calendars": result}
     except Exception as e:
@@ -60,24 +59,27 @@ def list_calendars() -> Dict[str, Any]:
 
 @mcp.tool()
 def list_events(
+    caldav_url: str,
+    caldav_username: str,
+    caldav_password: str,
     start: str,
     end: str,
     calendar_name: Optional[str] = None,
     calendar_url: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """List events in a time range from a calendar.
+    """List events in a time range.
 
     Args:
+        caldav_url: CalDAV server URL
+        caldav_username: Username
+        caldav_password: Password
         start: Start datetime ISO 8601 (e.g. 2026-07-01T00:00:00)
         end: End datetime ISO 8601
-        calendar_name: Calendar name filter (e.g. "personal", "work")
-        calendar_url: Exact calendar URL (overrides calendar_name if set)
-
-    Returns:
-        List of events with uid, summary, start, end, description, location
+        calendar_name: Calendar name filter (e.g. "personal")
+        calendar_url: Exact calendar URL (overrides calendar_name)
     """
     try:
-        client = _get_client()
+        client = _get_client(caldav_url, caldav_username, caldav_password)
         principal = client.principal()
 
         if calendar_url:
@@ -90,7 +92,8 @@ def list_events(
             if cal is None:
                 return {"error": f"Calendar not found: {calendar_name}"}
         else:
-            cal = principal.calendars()[0] if principal.calendars() else None
+            calendars = principal.calendars()
+            cal = calendars[0] if calendars else None
             if cal is None:
                 return {"error": "No calendars available"}
 
@@ -121,6 +124,9 @@ def list_events(
 
 @mcp.tool()
 def create_event(
+    caldav_url: str,
+    caldav_username: str,
+    caldav_password: str,
     summary: str,
     start: str,
     end: str,
@@ -132,6 +138,9 @@ def create_event(
     """Create a calendar event.
 
     Args:
+        caldav_url: CalDAV server URL
+        caldav_username: Username
+        caldav_password: Password
         summary: Event title
         start: Start datetime ISO 8601
         end: End datetime ISO 8601
@@ -139,12 +148,9 @@ def create_event(
         calendar_url: Exact calendar URL (overrides calendar_name)
         description: Event description
         location: Event location
-
-    Returns:
-        Created event UID and details
     """
     try:
-        client = _get_client()
+        client = _get_client(caldav_url, caldav_username, caldav_password)
         principal = client.principal()
 
         if calendar_url:
@@ -153,7 +159,8 @@ def create_event(
         elif calendar_name:
             cal = next((c for c in principal.calendars() if c.name.lower() == calendar_name.lower()), None)
         else:
-            cal = principal.calendars()[0] if principal.calendars() else None
+            calendars = principal.calendars()
+            cal = calendars[0] if calendars else None
 
         if cal is None:
             return {"error": "Calendar not found"}
@@ -170,7 +177,6 @@ def create_event(
             "summary": summary,
             "start": start,
             "end": end,
-            "calendar": calendar_name or calendar_url or "default",
         }
     except Exception as e:
         return {"error": str(e)}
@@ -178,32 +184,35 @@ def create_event(
 
 @mcp.tool()
 def update_event(
+    caldav_url: str,
+    caldav_username: str,
+    caldav_password: str,
     uid: str,
-    calendar_url: Optional[str] = None,
     calendar_name: Optional[str] = None,
+    calendar_url: Optional[str] = None,
     summary: Optional[str] = None,
     start: Optional[str] = None,
     end: Optional[str] = None,
     description: Optional[str] = None,
     location: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Update an existing calendar event by UID.
+    """Update an existing event by UID.
 
     Args:
+        caldav_url: CalDAV server URL
+        caldav_username: Username
+        caldav_password: Password
         uid: Event UID
-        calendar_url: Calendar URL (optional, searches all if omitted)
-        calendar_name: Calendar name filter (optional)
+        calendar_name: Calendar name filter
+        calendar_url: Exact calendar URL (overrides calendar_name)
         summary: New title
         start: New start datetime ISO 8601
         end: New end datetime ISO 8601
         description: New description
         location: New location
-
-    Returns:
-        Updated event details
     """
     try:
-        client = _get_client()
+        client = _get_client(caldav_url, caldav_username, caldav_password)
         principal = client.principal()
 
         if calendar_url:
@@ -218,8 +227,7 @@ def update_event(
 
         for cal in calendars:
             try:
-                events = cal.events()
-                for ev in events:
+                for ev in cal.events():
                     try:
                         vevent = ev.instance.vevent
                         if vevent.uid and str(vevent.uid.value) == uid:
@@ -233,41 +241,38 @@ def update_event(
                             if location is not None:
                                 vevent.location.value = location
                             ev.save()
-                            return {
-                                "uid": uid,
-                                "summary": str(vevent.summary.value),
-                                "start": _format_dt(getattr(vevent.dtstart, "value", None)),
-                                "end": _format_dt(getattr(vevent.dtend, "value", None)),
-                                "updated": True,
-                            }
+                            return {"uid": uid, "summary": str(vevent.summary.value), "updated": True}
                     except Exception:
                         continue
             except Exception:
                 continue
 
-        return {"error": f"Event not found: {uid}", "uid": uid}
+        return {"error": f"Event not found: {uid}"}
     except Exception as e:
-        return {"error": str(e), "uid": uid}
+        return {"error": str(e)}
 
 
 @mcp.tool()
 def delete_event(
+    caldav_url: str,
+    caldav_username: str,
+    caldav_password: str,
     uid: str,
-    calendar_url: Optional[str] = None,
     calendar_name: Optional[str] = None,
+    calendar_url: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Delete a calendar event by UID.
+    """Delete an event by UID.
 
     Args:
+        caldav_url: CalDAV server URL
+        caldav_username: Username
+        caldav_password: Password
         uid: Event UID
-        calendar_url: Calendar URL (optional, searches all if omitted)
-        calendar_name: Calendar name filter (optional)
-
-    Returns:
-        Deletion confirmation
+        calendar_name: Calendar name filter
+        calendar_url: Exact calendar URL (overrides calendar_name)
     """
     try:
-        client = _get_client()
+        client = _get_client(caldav_url, caldav_username, caldav_password)
         principal = client.principal()
 
         if calendar_url:
@@ -282,22 +287,21 @@ def delete_event(
 
         for cal in calendars:
             try:
-                events = cal.events()
-                for ev in events:
+                for ev in cal.events():
                     try:
                         vevent = ev.instance.vevent
                         if vevent.uid and str(vevent.uid.value) == uid:
-                            summary = str(vevent.summary.value) if vevent.summary else "unknown"
+                            sv = str(vevent.summary.value) if vevent.summary else "unknown"
                             ev.delete()
-                            return {"uid": uid, "summary": summary, "deleted": True}
+                            return {"uid": uid, "summary": sv, "deleted": True}
                     except Exception:
                         continue
             except Exception:
                 continue
 
-        return {"error": f"Event not found: {uid}", "uid": uid}
+        return {"error": f"Event not found: {uid}"}
     except Exception as e:
-        return {"error": str(e), "uid": uid}
+        return {"error": str(e)}
 
 
 def main():
