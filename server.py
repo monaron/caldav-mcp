@@ -74,24 +74,24 @@ def list_calendars(
 
 @mcp.tool()
 def list_events(
-    caldav_url: str = "",
-    caldav_username: str = "",
-    caldav_password: str = "",
     start: str,
     end: str,
     calendar_name: Optional[str] = None,
     calendar_url: Optional[str] = None,
+    caldav_url: str = "",
+    caldav_username: str = "",
+    caldav_password: str = "",
 ) -> Dict[str, Any]:
     """List events in a time range.
 
     Args:
-        caldav_url: CalDAV server URL
-        caldav_username: Username
-        caldav_password: Password
         start: Start datetime ISO 8601 (e.g. 2026-07-01T00:00:00)
         end: End datetime ISO 8601
         calendar_name: Calendar name filter (e.g. "personal")
         calendar_url: Exact calendar URL (overrides calendar_name)
+        caldav_url: CalDAV server URL
+        caldav_username: Username
+        caldav_password: Password
     """
     try:
         url, username, password = _resolve(caldav_url, caldav_username, caldav_password)
@@ -140,9 +140,6 @@ def list_events(
 
 @mcp.tool()
 def create_event(
-    caldav_url: str = "",
-    caldav_username: str = "",
-    caldav_password: str = "",
     summary: str,
     start: str,
     end: str,
@@ -150,13 +147,13 @@ def create_event(
     calendar_url: Optional[str] = None,
     description: Optional[str] = None,
     location: Optional[str] = None,
+    caldav_url: str = "",
+    caldav_username: str = "",
+    caldav_password: str = "",
 ) -> Dict[str, Any]:
     """Create a calendar event.
 
     Args:
-        caldav_url: CalDAV server URL
-        caldav_username: Username
-        caldav_password: Password
         summary: Event title
         start: Start datetime ISO 8601
         end: End datetime ISO 8601
@@ -164,6 +161,9 @@ def create_event(
         calendar_url: Exact calendar URL (overrides calendar_name)
         description: Event description
         location: Event location
+        caldav_url: CalDAV server URL
+        caldav_username: Username
+        caldav_password: Password
     """
     try:
         url, username, password = _resolve(caldav_url, caldav_username, caldav_password)
@@ -201,9 +201,6 @@ def create_event(
 
 @mcp.tool()
 def update_event(
-    caldav_url: str = "",
-    caldav_username: str = "",
-    caldav_password: str = "",
     uid: str,
     calendar_name: Optional[str] = None,
     calendar_url: Optional[str] = None,
@@ -212,13 +209,13 @@ def update_event(
     end: Optional[str] = None,
     description: Optional[str] = None,
     location: Optional[str] = None,
+    caldav_url: str = "",
+    caldav_username: str = "",
+    caldav_password: str = "",
 ) -> Dict[str, Any]:
     """Update an existing event by UID.
 
     Args:
-        caldav_url: CalDAV server URL
-        caldav_username: Username
-        caldav_password: Password
         uid: Event UID
         calendar_name: Calendar name filter
         calendar_url: Exact calendar URL (overrides calendar_name)
@@ -227,6 +224,9 @@ def update_event(
         end: New end datetime ISO 8601
         description: New description
         location: New location
+        caldav_url: CalDAV server URL
+        caldav_username: Username
+        caldav_password: Password
     """
     try:
         url, username, password = _resolve(caldav_url, caldav_username, caldav_password)
@@ -272,22 +272,22 @@ def update_event(
 
 @mcp.tool()
 def delete_event(
-    caldav_url: str = "",
-    caldav_username: str = "",
-    caldav_password: str = "",
     uid: str,
     calendar_name: Optional[str] = None,
     calendar_url: Optional[str] = None,
+    caldav_url: str = "",
+    caldav_username: str = "",
+    caldav_password: str = "",
 ) -> Dict[str, Any]:
     """Delete an event by UID.
 
     Args:
-        caldav_url: CalDAV server URL
-        caldav_username: Username
-        caldav_password: Password
         uid: Event UID
         calendar_name: Calendar name filter
         calendar_url: Exact calendar URL (overrides calendar_name)
+        caldav_url: CalDAV server URL
+        caldav_username: Username
+        caldav_password: Password
     """
     try:
         url, username, password = _resolve(caldav_url, caldav_username, caldav_password)
